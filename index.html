@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Visualizador de Lineas de Campo Electrico</title>
+  <meta name="description" content="Visualizador de campo eléctrico.">
+
+  <!-- Tipografía & Material Icons -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Meta para redes y accesibilidad -->
+  <meta name="theme-color" content="#ffffff" />
+</head>
+<body>
+  <header class="appbar" role="banner">
+    <div class="appbar-left">
+      <div class="logo">
+        <span class="material-icons-outlined">bolt</span>
+      </div>
+      <div class="title-block">
+        <div class="app-title">Lineas de Campo Electrico</div>
+        <div class="app-sub">Visualizador interactivo</div>
+      </div>
+    </div>
+
+    <div class="appbar-right">
+      <button id="themeToggle" class="icon-btn" aria-label="Cambiar tema">
+        <span class="material-icons-outlined" id="themeIcon">dark_mode</span>
+      </button>
+
+  </header>
+
+  <main class="layout" role="main">
+    <!-- LATERAL: CONTROLES -->
+    <aside class="panel" aria-labelledby="controlsTitle">
+      <h2 id="controlsTitle">Controles</h2>
+
+      <section class="card controls-card" aria-label="Herramientas principales">
+        <div class="tool-row">
+          <button id="toolAdd" class="md-btn md-btn--primary" title="Agregar carga (A)"> <span class="material-icons-outlined">add_circle</span> Añadir</button>
+          <button id="toolSelect" class="md-btn" title="Seleccionar/Mover (S)"> <span class="material-icons-outlined">pan_tool</span> Seleccionar</button>
+          <button id="toolDelete" class="md-btn md-btn--danger" title="Eliminar (D)"> <span class="material-icons-outlined">delete</span> Eliminar</button>
+        </div>
+
+        <div class="form-field">
+          <label for="chargeValue">Magnitud Q</label>
+          <input id="chargeValue" type="number" value="50" step="1" />
+          <div class="segmented" role="radiogroup" aria-label="Signo de la carga">
+            <label><input type="radio" name="chargeSign" value="pos" checked> +</label>
+            <label><input type="radio" name="chargeSign" value="neg"> −</label>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3 class="card-title">Visualización</h3>
+
+        <div class="form-field">
+          <label for="visualizationMode">Modo</label>
+          <select id="visualizationMode" aria-label="Modo de visualización">
+            <option value="streamlines">Líneas (RK4)</option>
+            <option value="potential">Mapa Potencial (V)</option>
+            <option value="magnitude">Mapa |E|</option>
+            <option value="none">Solo cargas</option>
+          </select>
+        </div>
+
+        <div class="checkbox-row">
+          <label><input type="checkbox" id="showVectors" checked> Vectores</label>
+          <label><input type="checkbox" id="showStreamlines"> Superponer RK4</label>
+        </div>
+
+        <div class="ranges">
+          <div class="range-row">
+            <label for="numSeeds">Seeds: <span id="numSeedsLabel">30</span></label>
+            <input id="numSeeds" type="range" min="1" max="300" value="30">
+          </div>
+
+          <div class="range-row">
+            <label for="epsilon">Suavizado (ε): <span id="epsilonLabel">10</span></label>
+            <input id="epsilon" type="range" min="1" max="200" value="10">
+          </div>
+
+          <div class="range-row">
+            <label for="maxSteps">Longitud trazos: <span id="maxStepsLabel">300</span></label>
+            <input id="maxSteps" type="range" min="50" max="2000" step="50" value="300">
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3 class="card-title">Escena</h3>
+        <div class="scene-actions">
+          <button id="saveBtn" class="md-btn"><span class="material-icons-outlined">save</span> Guardar</button>
+          <button id="loadBtn" class="md-btn"><span class="material-icons-outlined">folder_open</span> Cargar</button>
+          <button id="exportPNG" class="md-btn"><span class="material-icons-outlined">image</span> Export PNG</button>
+          <button id="clearBtn" class="md-btn md-btn--outline">Limpiar</button>
+        </div>
+
+
+    </aside>
+
+    <!-- PRINCIPAL: CANVAS -->
+    <section class="viewer" aria-label="Área de visualización">
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="fieldCanvas" tabindex="0" aria-label="Lienzo del campo eléctrico"></canvas>
+
+        <!-- Overlay: estado / tips -->
+        <div class="overlay top-left">
+          <div id="status" class="chip">Listo</div>
+        </div>
+
+        
+
+        <!-- FABs -->
+        <div class="fab-group">
+          <button id="fabSelect" class="fab" title="Seleccionar"><span class="material-icons-outlined">pan_tool</span></button>
+          <button id="fabAdd" class="fab fab--accent" title="Añadir"><span class="material-icons-outlined">add</span></button>
+          <button id="fabDelete" class="fab fab--danger" title="Eliminar"><span class="material-icons-outlined">delete</span></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Hook pequeño para accesibilidad & theme persistence
+       No toca tu lógica principal; solo mantiene el icono del theme. -->
+  <script>
+    (function(){
+      const themeToggle = document.getElementById('themeToggle');
+      const themeIcon = document.getElementById('themeIcon');
+      const stored = localStorage.getItem('theme_preference') || 'auto';
+      const apply = (mode) => {
+        document.documentElement.setAttribute('data-theme', mode);
+        themeIcon.textContent = mode === 'dark' ? 'light_mode' : 'dark_mode';
+      };
+      // start with stored or system
+      if (stored === 'auto') {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        apply(prefersDark ? 'dark' : 'light');
+      } else apply(stored);
+
+      themeToggle?.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        apply(next);
+        localStorage.setItem('theme_preference', next);
+      });
+    })();
+  </script>
+
+  <!-- Tu main.js (asegúrate de la ruta correcta: js/main.js o ./main.js según tu estructura) -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
